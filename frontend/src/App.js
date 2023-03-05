@@ -1,127 +1,107 @@
-import React, { useState } from "react";
-import axios from "axios";
-
+import React, { useState } from 'react';
+import axios from 'axios';
+import "./App.css";
 function App() {
   const [formData, setFormData] = useState({
-    host: "",
-    user: "",
-    password: "",
-    database: "",
+    user: '',
+    host: '',
+    password: '',
+    database: ''
   });
-  const [response, setResponse] = useState("");
-  const [tables, setTables] = useState({});
-  const [databases, setDatabases] = useState([]);
-  const [selectedDatabase, setSelectedDatabase] = useState("");
+  const [dbList, setDbList] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [selectedDb, setSelectedDb] = useState('');
 
-
-
-  const showTables = async (event) => {
-    event.preventDefault();
-    try {
-      const response = await axios.get("http://127.0.0.1:8000/show_tables/", {
-        params: {
-          host: formData.host,
-          user: formData.user,
-          password: formData.password,
-          database: selectedDatabase,
-        },
-      })
-       setTables(response.data);
-       console.log(response.data)
-    } catch (error) {
-      console.log(error);
-    }
+  const handleChange = e => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
+ const handleTestConnection = e => {
+  e.preventDefault();
+  axios.post('http://localhost:8000/test_connection/', formData)
+    .then(res => {
+      const db = res.data.databases;
+      dbList.push(db)
+      setDbList(dbList); // Mettre à jour dbList avec le nom de la base de données
+      setSelectedDb(db);
+
+    })
+    .catch(err => console.log(err));
+};
 
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    axios
-      .post("http://127.0.0.1:8000/test_connection/", formData)
-      .then((res) => {
-        setResponse(res.data);
-        alert(res.data);
-        setDatabases(res.data.databases);
+const handleGetTables = e => {
+  e.preventDefault();
+  axios.post(`http://localhost:8000/show_tables/`,{ ...formData , selectedDb:selectedDb}
+  
+  )
+    .then(res => {
+      setTables(res.data.tables);
+      console.log(res.data)
+    })
+    .catch(err => console.log(err));
 
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  };
-  const handleSelectChange = (event) => {
-    setSelectedDatabase(event.target.value);
-  };
-
-  const handleInputChange = (event) => {
-    setFormData({ ...formData, [event.target.name]: event.target.value });
-  };
+};
 
   return (
-    <div>
-      <h1>Test de connexion à la base de données</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Host:
-          <input
-            type="text"
-            name="host"
-            value={formData.host}
-            onChange={handleInputChange}
-          />
-        </label>
-        <br />
-        <label>
-          Utilisateur:
-          <input
-            type="text"
-            name="user"
-            value={formData.user}
-            onChange={handleInputChange}
-          />
-        </label>
-        <br />
-        <label>
-          Mot de passe:
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleInputChange}
-          />
-        </label>
-        <br />
-        <label>
-          Base de données:
-          <input
-            type="text"
-            name="database"
-            value={formData.database}
-            onChange={handleInputChange}
-          />
-        </label>
-        <br />
-        <button type="submit">Tester la connexion</button>
+    <div className="container">
+      <div className='formBox'>
+      <form>
+      <h1>Database Connection</h1>
 
-
-      </form>
-     
-       <button onClick={showTables}>Afficher les tables</button>
-      { 
-       Object.keys(tables).map((tableName) => (
-        <div key={tableName}>
-          <h3>{tableName}</h3>
-          <ul>
-            {tables[tableName].map((fieldName) => (
-              <li key={fieldName}>{fieldName}</li>
-            ))}
-          </ul>
+        <div className='inputfield'>
+        <label>User:</label>
+        <input type="text" name="user" class="field" value={formData.user} onChange={handleChange} /><br />
         </div>
-       ))
-      }
+
+        <div className='inputfield'>
+        <label>Host:</label>
+        <input type="text" name="host" class="field" value={formData.host} onChange={handleChange} /><br />
+        </div>
+
+        <div className='inputfield'>
+        <label>Password:</label>
+        <input type="password" name="password" class="field" value={formData.password} onChange={handleChange} /><br />
+        </div>
+
+        <div className='inputfield'>
+        <label>Database:</label>
+        <input type="text" name="database" class="field" value={formData.database} onChange={handleChange} /><br />
+         </div>
+
+        <button class="btn" onClick={handleTestConnection}>Test Connection</button>
+      </form>
+
+      <select className='selection-db' value={selectedDb} onChange={e => setSelectedDb(e.target.value)}>
+      <option value =" " disabled selected>connected databases </option>
+        {dbList.map((db,index) => <option key={index}>{db}</option>)}
+      </select>
+      <button onClick={handleGetTables} disabled={!selectedDb}>Show Tables</button>
+      {tables.length > 0 && (
+        <table border={1}>
+          <thead>
+            <tr>
+              {Object.keys(tables[0]).map(key => <th key={key}>{key}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {tables.map((row, i) => (
+              <tr key={i}>
+                {Object.values(row).map((value, j) => <td key={j}>{value}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+    
+            </div>
+
     </div>
   );
 }
-
 
 export default App;

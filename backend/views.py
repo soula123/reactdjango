@@ -5,82 +5,99 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.db import connection
+import MySQLdb as mysql
 
 # Create your views here.
 from django.http import HttpResponse
 import mysql.connector
 @csrf_exempt
 # Endpoint to test database connection
+@csrf_exempt
 def test_connection(request):
-        
-         # get the request data as JSON
-    request_data = request.body
-    data = json.loads(request_data)
-        # Connect to the database
-         # establish a connection to the database
-    conn = mysql.connector.connect(
-        host=data['host'],
-        user=data['user'],
-        password=data['password'],
-        database=data['database'],
-    )
-    cursor = conn.cursor()
-    cursor.execute("SHOW DATABASES;")
-    databases = cursor.fetchall()
-    databases = [database[0] for database in databases]
-    data['databases'] = databases
-    
-        # Return success message with query result
-    if conn.is_connected():
-        return HttpResponse("Connected to the database!")
+    if request.method == 'POST':
+        # Récupérer les informations de connexion à partir des données de requête
+        request_data = request.body
+        data = json.loads(request_data)
+
+        # Établir une connexion à la base de données
+        conn = mysql.connector.connect(
+            host=data['host'],
+            user=data['user'],
+            password=data['password'],
+            database=data['database']
+        )
+
+        # Si la connexion a réussi, récupérer les noms de toutes les bases de données
+        if conn.is_connected():
+            cursor = conn.cursor()
+            cursor.execute("SHOW DATABASES")
+            databases = cursor.fetchall()
+            
+            cursor.close()
+            conn.close()
+            # Retourner une réponse réussie avec les noms de toutes les bases de données en tant que données JSON
+            response_data = {'status': 'success', 'message': 'Connected to the database!', 'databases':data['database']}
+            return JsonResponse(response_data)
+        else:
+            # Retourner un message d'erreur si la connexion à la base de données a échoué
+            response_data = {'status': 'error', 'message': 'Error connecting to the database.'}
+            return JsonResponse(response_data)
     else:
-        return HttpResponse("Error connecting to the database.")
+        # Retourner une réponse d'erreur si la méthode de requête n'est pas POST
+        response_data = {'status': 'error', 'message': 'Invalid request method.'}
+        return JsonResponse(response_data)
 
 @csrf_exempt
 def show_tables(request):
-    if request.method == 'GET':
-        host = request.GET.get('host')
-        user = request.GET.get('user')
-        password = request.GET.get('password')
-        database = request.GET.get('database')
+    if request.method == 'POST':
+        # Récupérer les informations de connexion à partir des données de requête
+        request_data = request.body
+        data = json.loads(request_data)
+        # Récupérer le nom de la base de données à partir des données de requête
 
-        # Establish a new database connection
-        conn = connection.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=database,
+        # Établir une connexion à la base de données
+        conn = mysql.connector.connect(
+            host=data['host'],
+            user=data['user'],
+            password=data['password'],
+            database=data['selectedDb'],
         )
-        cursor = conn.cursor()
 
-        # Execute the query to get the tables
-        cursor.execute("SHOW TABLES")
-
-        # Fetch the table names
-        tables = cursor.fetchall()
-
-        # Close the database connection
-        cursor.close()
-        conn.close()
-
-        # Convert the list of tuples to a dictionary
-        table_dict = {}
-        for table in tables:
-            table_name = table[0]
-            table_dict[table_name] = []
-
-        # Create a dictionary of the fields for each table
-        for table_name in table_dict:
+        if conn is not None:
+            # exécuter la requête pour récupérer les noms de toutes les tables de la base de données
             cursor = conn.cursor()
-            cursor.execute("DESCRIBE {}".format(table_name))
-            fields = cursor.fetchall()
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
+
+            # fermer la connexion
             cursor.close()
+            conn.close()
 
-            for field in fields:
-                table_dict[table_name].append(field[0])
+            # retourner les noms de toutes les tables de la base de données en tant que réponse JSON
+            response_data = {'tables': tables}
+            return JsonResponse(response_data)
+        else:
+            # retourner un message d'erreur si la connexion à la base de données échoue
+            response_data = {'error': 'Impossible de se connecter à la base de données.'}
+            return JsonResponse(response_data)
+    else:
+        # retourner une réponse d'erreur si la méthode de requête n'est pas POST
+        response_data = {'error': 'Invalid request method.'}
+        return JsonResponse(response_data)
 
-        # Return the table dictionary as a JSON response
-        return JsonResponse(table_dict)
-
-    # Return an error response if the request method is not GET
-    return JsonResponse({'error': 'Invalid request method'})
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+        
